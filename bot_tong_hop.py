@@ -73,7 +73,9 @@ def lay_du_lieu_binance(symbol='BTC/USDT', timeframe='1d', limit=50):
         bars = ccxt.bybit().fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         df = pd.DataFrame(bars, columns=['thoi_gian', 'gia_mo', 'gia_cao', 'gia_thap', 'gia_dong', 'khoi_luong'])
         return df['gia_dong']
-    except: return None
+    except Exception as e:
+        print(f"Chi tiết lỗi CCXT Bybit: {e}")
+        return None
 
 def tinh_xac_suat_tang(danh_sach_gia, so_ngay_du_bao=30):
     returns = np.log(danh_sach_gia / danh_sach_gia.shift(1)).dropna()
