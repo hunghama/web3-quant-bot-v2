@@ -70,7 +70,7 @@ my_onchain_bot = Web3AIBot()
 # ==========================================
 def lay_du_lieu_binance(symbol='BTC/USDT', timeframe='1d', limit=50):
     try:
-        bars = ccxt.binance().fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+        bars = ccxt.bybit().fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         df = pd.DataFrame(bars, columns=['thoi_gian', 'gia_mo', 'gia_cao', 'gia_thap', 'gia_dong', 'khoi_luong'])
         return df['gia_dong']
     except: return None
