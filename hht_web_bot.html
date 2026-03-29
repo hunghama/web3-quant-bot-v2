@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chatbot Tuyển Sinh HHT - RAG Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+        body { font-family: 'Be Vietnam Pro', sans-serif; background-color: #f8fafc; }
+        
+        /* Tùy chỉnh thanh cuộn */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        
+        .typing-indicator span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background-color: #3b82f6;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out both;
+            margin: 0 2px;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        
+        @keyframes typing {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+
+    <div class="hidden md:flex md:w-80 bg-white border-r border-slate-200 flex-col shadow-sm z-10">
+        <div class="p-6 border-b border-slate-100 flex items-center gap-3 bg-blue-50">
+            <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                <i data-lucide="graduation-cap" class="w-7 h-7"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-slate-800 text-lg">HHT AI Advisor</h1>
+                <p class="text-xs text-blue-600 font-medium">Trợ lý Tuyển Sinh Thông Minh</p>
+            </div>
+        </div>
+        
+        <div class="p-6 flex-1 overflow-y-auto">
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Trạng thái hệ thống</h2>
+            <div class="space-y-4 text-sm text-slate-600">
+                <div class="flex gap-3 items-center">
+                    <i data-lucide="database" class="w-4 h-4 text-green-500"></i>
+                    <p id="db-status" class="text-green-600 font-bold text-xs">Đang nạp dữ liệu...</p>
+                </div>
+            </div>
+
+            <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mt-8 mb-4">Câu hỏi thường gặp</h2>
+            <div class="space-y-3">
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex gap-3 items-center hover:bg-blue-50 transition-colors cursor-pointer" onclick="fillInput('Cho tôi biết thông tin về ngành Công nghệ ô tô')">
+                    <div class="p-2 bg-white rounded shadow-sm text-blue-500"><i data-lucide="car" class="w-4 h-4"></i></div>
+                    <span class="text-sm font-medium text-slate-700">Công nghệ Ô tô</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex gap-3 items-center hover:bg-blue-50 transition-colors cursor-pointer" onclick="fillInput('Trường cam kết việc làm như thế nào?')">
+                    <div class="p-2 bg-white rounded shadow-sm text-green-500"><i data-lucide="briefcase" class="w-4 h-4"></i></div>
+                    <span class="text-sm font-medium text-slate-700">Cam kết việc làm</span>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 flex gap-3 items-center hover:bg-blue-50 transition-colors cursor-pointer" onclick="fillInput('Học phí 1 kỳ của trường là bao nhiêu?')">
+                    <div class="p-2 bg-white rounded shadow-sm text-yellow-500"><i data-lucide="coins" class="w-4 h-4"></i></div>
+                    <span class="text-sm font-medium text-slate-700">Học phí dự kiến</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-200">
+            <button onclick="clearChat()" class="w-full py-2.5 flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                <i data-lucide="trash-2" class="w-4 h-4"></i> Xóa lịch sử trò chuyện
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col bg-slate-50 relative">
+        <div class="md:hidden bg-white border-b border-slate-200 p-4 flex items-center gap-3 shadow-sm z-10">
+            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-md">
+                <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-slate-800 text-base">HHT AI Advisor</h1>
+                <p class="text-[10px] text-blue-600 font-medium">Tư vấn tuyển sinh trực tuyến</p>
+            </div>
+            <button onclick="clearChat()" class="ml-auto text-slate-400 hover:text-red-500">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div id="chat-container" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 custom-scrollbar pb-32">
+            <div class="flex gap-4">
+                <div class="w-8 h-8 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center text-white shadow-sm mt-1">
+                    <i data-lucide="bot" class="w-4 h-4"></i>
+                </div>
+                <div class="bg-white border border-slate-200 text-slate-700 p-4 rounded-2xl rounded-tl-none shadow-sm max-w-[85%] md:max-w-[70%] text-sm leading-relaxed">
+                    Chào mừng bạn đến với kênh tư vấn trực tuyến của <b>Trường Cao đẳng Công nghệ cao Hà Nội (HHT)</b>. 👋<br><br>
+                    Tôi là HHT AI Advisor. Tôi đã được nạp dữ liệu tuyển sinh chính thức của trường. Bạn muốn hỏi thông tin gì nào?
+                </div>
+            </div>
+        </div>
+
+        <div id="typing-indicator" class="hidden absolute bottom-24 left-4 md:left-8 flex gap-4 transition-opacity duration-300">
+            <div class="w-8 h-8 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center text-white shadow-sm">
+                <i data-lucide="bot" class="w-4 h-4"></i>
+            </div>
+            <div class="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none shadow-sm flex items-center h-10">
+                <div class="typing-indicator">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white border-t border-slate-200 p-4 absolute bottom-0 w-full z-10 shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
+            <form id="chat-form" class="max-w-4xl mx-auto relative flex items-center" onsubmit="handleChatSubmit(event)">
+                <input 
+                    type="text" 
+                    id="user-input" 
+                    placeholder="Nhập câu hỏi của bạn về ngành học, học phí..." 
+                    class="w-full pl-5 pr-14 py-4 bg-slate-100 text-sm border-none rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-slate-700 shadow-inner"
+                    autocomplete="off"
+                >
+                <button 
+                    type="submit" 
+                    id="send-btn"
+                    class="absolute right-2 w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
+                >
+                    <i data-lucide="send" class="w-4 h-4 ml-0.5"></i>
+                </button>
+            </form>
+            <p class="text-center text-[10px] text-slate-400 mt-2">HHT Enrollment AI Assistant • Hệ thống dùng công nghệ RAG (JSON)</p>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // ==========================================
+        // 🚨 CHÚ Ý: ĐIỀN API KEY CỦA ÔNG VÀO ĐÂY NHÉ
+        // ==========================================
+        const apiKey = "AIzaSyB_d5p5sVIqXCy9ChA8cCNeUmjM4YHzOFw";
+        
+        let chatHistoryForAPI = [];
+        let knowledgeBase = ""; 
+
+        // 🧠 HÀM RAG THU NHỎ: Tự động nạp file JSON khi web vừa mở
+        async function loadKnowledgeBase() {
+            const dbStatus = document.getElementById('db-status');
+            try {
+                // Hút dữ liệu từ file hht_data.json nằm cùng thư mục
+                const response = await fetch('hht_data.json');
+                const data = await response.json();
+                
+                // Biến object thành chuỗi văn bản để nhét vào não Bot
+                knowledgeBase = JSON.stringify(data, null, 2);
+                
+                // Cập nhật giao diện báo thành công
+                dbStatus.innerText = "Dữ liệu JSON đã nạp (Sẵn sàng)";
+                console.log("Tải thành công Bộ não dữ liệu HHT!");
+            } catch (error) {
+                dbStatus.innerText = "LỖI NẠP DỮ LIỆU (Cần Live Server)";
+                dbStatus.classList.replace('text-green-600', 'text-red-600');
+                console.error("Lỗi tải dữ liệu. Hãy chắc chắn ông đang dùng Live Server!", error);
+                knowledgeBase = "Hệ thống đang lỗi bộ nhớ cục bộ, hãy trả lời bằng kiến thức chung.";
+            }
+        }
+        
+        // Kích hoạt việc nạp não ngay lập tức
+        loadKnowledgeBase();
+
+        // 🛠️ HÀM TẠO PROMPT HỆ THỐNG ĐỘNG (SYSTEM INSTRUCTION)
+        function getSystemPrompt() {
+            return `
+            Bạn là HHT AI Advisor - trợ lý ảo tuyển sinh của trường Cao đẳng Công nghệ cao Hà Nội (HHT).
+            
+            DƯỚI ĐÂY LÀ KHO DỮ LIỆU TUYỂN SINH CHÍNH THỨC CỦA NHÀ TRƯỜNG:
+            ---
+            ${knowledgeBase}
+            ---
+            
+            NHIỆM VỤ:
+            1. CHỈ sử dụng dữ liệu từ kho dữ liệu trên để trả lời học sinh. 
+            2. Nếu học sinh hỏi về các ngành có trong kho (Ô tô, CNTT, Chăm sóc sắc đẹp), hãy đưa ra chi tiết cơ sở vật chất, đối tác doanh nghiệp và việc làm.
+            3. Nếu học sinh hỏi về Học phí hoặc Cam kết việc làm, hãy trích dẫn chính xác con số trong kho dữ liệu.
+            4. Nếu học sinh hỏi thông tin KHÔNG CÓ trong kho, hãy lịch sự từ chối và khuyên họ gọi Hotline.
+            
+            PHONG CÁCH:
+            Thân thiện, xưng "Mình" và gọi "Bạn". Có dùng emoji để câu trả lời thêm sinh động. Dùng thẻ <b> để in đậm ý chính. Tuyệt đối không dùng Markdown.
+            `;
+        }
+
+        // --- CÁC HÀM XỬ LÝ GIAO DIỆN (UI) ---
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        function fillInput(text) {
+            userInput.value = text;
+            userInput.focus();
+        }
+
+        function clearChat() {
+            chatHistoryForAPI = [];
+            chatContainer.innerHTML = `
+                <div class="flex gap-4">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center text-white shadow-sm mt-1">
+                        <i data-lucide="bot" class="w-4 h-4"></i>
+                    </div>
+                    <div class="bg-white border border-slate-200 text-slate-700 p-4 rounded-2xl rounded-tl-none shadow-sm max-w-[85%] md:max-w-[70%] text-sm leading-relaxed">
+                        Lịch sử đã được làm mới. Mình có thể giúp gì cho bạn?
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: 'smooth' });
+        }
+
+        function appendUserMessage(text) {
+            const html = `
+                <div class="flex gap-4 justify-end fade-in">
+                    <div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none shadow-sm max-w-[85%] md:max-w-[70%] text-sm leading-relaxed">
+                        ${text}
+                    </div>
+                    <div class="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center text-slate-500 shadow-sm mt-1">
+                        <i data-lucide="user" class="w-4 h-4"></i>
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        function appendBotMessage(text) {
+            // Chuyển Markdown in đậm sang HTML
+            let formattedText = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+
+            const html = `
+                <div class="flex gap-4 fade-in">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex-shrink-0 flex items-center justify-center text-white shadow-sm mt-1">
+                        <i data-lucide="bot" class="w-4 h-4"></i>
+                    </div>
+                    <div class="bg-white border border-slate-200 text-slate-700 p-4 rounded-2xl rounded-tl-none shadow-sm max-w-[85%] md:max-w-[70%] text-sm leading-relaxed">
+                        ${formattedText}
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', html);
+            lucide.createIcons();
+            scrollToBottom();
+        }
+
+        // --- XỬ LÝ SỰ KIỆN SUBMIT ---
+        async function handleChatSubmit(e) {
+            e.preventDefault();
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            userInput.value = '';
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            appendUserMessage(text);
+            typingIndicator.classList.remove('hidden');
+            scrollToBottom();
+
+            const responseText = await callGeminiAPI(text);
+
+            typingIndicator.classList.add('hidden');
+            appendBotMessage(responseText);
+
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+
+        // --- GỌI API VỚI EXPONENTIAL BACKOFF ---
+        async function callGeminiAPI(userText) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
+            
+            let contents = [...chatHistoryForAPI];
+            contents.push({ role: "user", parts: [{ text: userText }] });
+
+            const payload = {
+                contents: contents,
+                systemInstruction: { parts: [{ text: getSystemPrompt() }] } 
+            };
+
+            const maxRetries = 5;
+            const delays = [1000, 2000, 4000, 8000, 16000];
+
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const botReply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                        
+                        if (botReply) {
+                            chatHistoryForAPI.push({ role: "user", parts: [{ text: userText }] });
+                            chatHistoryForAPI.push({ role: "model", parts: [{ text: botReply }] });
+                            return botReply;
+                        } else {
+                            return "Hệ thống trả về dữ liệu trống. Xin thử lại.";
+                        }
+                    } else if (response.status === 429) {
+                        console.warn(`Rate limit. Thử lại lần ${i+1} sau ${delays[i]}ms`);
+                        await new Promise(resolve => setTimeout(resolve, delays[i]));
+                    } else {
+                        const errText = await response.text();
+                        console.error("API Error:", response.status, errText);
+                        break;
+                    }
+                } catch (error) {
+                    console.error("Fetch Error:", error);
+                    await new Promise(resolve => setTimeout(resolve, delays[i]));
+                }
+            }
+
+            return "Xin lỗi, hiện tại hệ thống đang quá tải. Vui lòng thử lại sau giây lát hoặc gọi Hotline HHT.";
+        }
+    </script>
+</body>
+</html>

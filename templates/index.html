@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web3 AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .line-clamp-5 {
+            display: -webkit-box;
+            -webkit-line-clamp: 5;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-start justify-center p-4 pt-10">
+
+    <div class="max-w-4xl w-full grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- CỘT TRÁI: Khu vực Phân tích chính -->
+        <div class="md:col-span-2 bg-slate-800 rounded-xl shadow-2xl p-8 border border-slate-700 h-fit">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
+                    🤖 Web3 AI Assistant
+                </h1>
+                <p class="text-slate-400 mt-2">Phân tích ví Ethereum & Token ERC-20</p>
+            </div>
+
+            <form id="analyze-form" class="mb-8">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <input 
+                        type="text" 
+                        id="wallet-input"
+                        placeholder="Nhập địa chỉ ví Ethereum (0x...)" 
+                        required
+                        class="flex-1 bg-slate-700 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400 font-mono text-sm"
+                    >
+                    <button 
+                        id="submit-btn"
+                        type="submit" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition duration-200"
+                    >
+                        Phân tích
+                    </button>
+                </div>
+            </form>
+
+            <div id="loading-spinner" class="hidden flex flex-col items-center justify-center py-8">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mb-4"></div>
+                <p class="text-emerald-400 font-semibold animate-pulse">🧠 Đang moi dữ liệu Token & suy nghĩ...</p>
+            </div>
+
+            <div id="result-box" class="hidden bg-slate-700/50 rounded-lg p-6 border border-slate-600">
+                <h3 class="text-lg font-semibold text-emerald-400 mb-4 flex items-center">
+                    <span class="mr-2">✨</span> Nội dung chi tiết:
+                </h3>
+                <div id="result-content" class="text-slate-300 leading-relaxed whitespace-pre-wrap font-sans">
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT PHẢI: Khu vực hiển thị Lịch sử -->
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 border border-slate-700 h-fit">
+            <h3 class="text-xl font-bold text-emerald-400 mb-4 flex items-center border-b border-slate-700 pb-3">
+                <span class="mr-2">🕒</span> Lịch sử phân tích
+                <button onclick="window.location.reload()" class="ml-auto text-xs bg-slate-700 hover:bg-slate-600 px-2 py-1 rounded text-slate-300">Làm mới</button>
+            </h3>
+            
+            <div class="flex flex-col gap-4">
+                {% if history and history|length > 0 %}
+                    {% for row in history %}
+                    <!-- Thêm sự kiện onclick để click vào thẻ lịch sử -->
+                    <div onclick="viewHistory(this)" class="bg-slate-700/30 rounded-lg p-4 border border-slate-600 hover:border-blue-400 transition cursor-pointer">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-xs font-mono text-blue-400 bg-blue-900/30 px-2 py-1 rounded">{{ row[0][:8] }}...{{ row[0][-4:] }}</span>
+                        </div>
+                        <div class="text-slate-400 text-xs mb-2">{{ row[2] }}</div>
+                        <div class="text-slate-300 text-sm line-clamp-5 font-sans">
+                            {{ row[1] | safe }}
+                        </div>
+                        <!-- Cất giấu bản full không che ở đây để gọi ra khi click -->
+                        <div class="hidden-full-content hidden">{{ row[1] | safe }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-slate-500 text-sm italic text-center py-4">Chưa có lịch sử nào. Hãy quét ví đầu tiên!</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // HÀM MỚI: Bấm vào lịch sử để xem lại
+        function viewHistory(element) {
+            // Lấy nội dung full từ thẻ div bị giấu
+            const fullText = element.querySelector('.hidden-full-content').innerHTML;
+            
+            // Hiển thị lên màn hình chính
+            document.getElementById('result-content').innerHTML = fullText;
+            document.getElementById('result-box').classList.remove('hidden');
+            
+            // Cuộn chuột lên trên cùng cho dễ đọc
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // KỊCH BẢN TÌM KIẾM MỚI
+        document.getElementById('analyze-form').addEventListener('submit', async function(event) {
+            event.preventDefault(); 
+            
+            const walletInput = document.getElementById('wallet-input').value.trim();
+            const submitBtn = document.getElementById('submit-btn');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const resultBox = document.getElementById('result-box');
+            const resultContent = document.getElementById('result-content');
+
+            const ethRegex = /^0x[a-fA-F0-9]{40}$/;
+            if (!ethRegex.test(walletInput)) {
+                alert("Địa chỉ ví không hợp lệ!");
+                return;
+            }
+
+            submitBtn.classList.add('hidden');
+            loadingSpinner.classList.remove('hidden');
+            resultBox.classList.add('hidden');
+
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wallet_address: walletInput })
+                });
+
+                const data = await response.json(); 
+
+                if (data.status === 'success') {
+                    // Hiển thị kết quả lên màn hình
+                    resultContent.innerHTML = data.data; 
+                    resultBox.classList.remove('hidden');
+                    
+                    // XÓA ĐOẠN SET TIMEOUT TỰ ĐỘNG LOAD TRANG Ở ĐÂY RỒI NHÉ!
+                } else {
+                    alert("Lỗi: " + data.message);
+                }
+
+            } catch (error) {
+                alert("Không thể kết nối với máy chủ!");
+            } finally {
+                loadingSpinner.classList.add('hidden');
+                submitBtn.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
