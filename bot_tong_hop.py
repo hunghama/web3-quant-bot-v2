@@ -107,13 +107,13 @@ def send_welcome(message):
         "1️⃣ **Soi On-chain (Cá mập):** Gửi thẳng địa chỉ ví `0x...` vào đây.\n"
         "2️⃣ **Soi Off-chain (Biểu đồ Quant):** Gõ lệnh `/soichart [Tên Coin]`. Ví dụ: `/soichart ETH`"
     )
-    bot.reply_to(message, loi_chao, parse_mode="Markdown")
+    bot.reply_to(message, loi_chao)
 
 @bot.message_handler(commands=['soichart'])
 def phan_tich_chart(message):
     text_split = message.text.split()
     if len(text_split) < 2:
-        bot.reply_to(message, "⚠️ Sếp gõ thiếu tên coin rồi. Ví dụ: `/soichart BTC`", parse_mode="Markdown")
+        bot.reply_to(message, "⚠️ Sếp gõ thiếu tên coin rồi. Ví dụ: `/soichart BTC`")
         return
     
     coin_symbol = text_split[1].upper() + "/USDT"
@@ -144,8 +144,12 @@ def phan_tich_chart(message):
     
     try:
         ai_nhan_dinh = my_onchain_bot.client.models.generate_content(model='gemini-2.5-flash', contents=prompt_chuyen_gia).text
-    except Exception:
-        ai_nhan_dinh = "⚠️ Lỗi kết nối API của AI."
+    except Exception as e:
+        # 1. In lỗi chi tiết ra Terminal (Màn hình đen) để Kỹ sư (sếp) đọc
+        print(f"Lỗi hệ thống: {e}") 
+        
+        # 2. Gửi tin nhắn sạch sẽ, an toàn về Telegram
+        bot.reply_to(message, "❌ Lỗi lấy dữ liệu từ sàn. Sếp kiểm tra lại tên coin nhé (Ví dụ: /soichart BTC)")
 
     bao_cao = (
         f"📊 **BÁO CÁO QUANT & AI: {coin_symbol}**\n"
@@ -157,7 +161,7 @@ def phan_tich_chart(message):
         f"━━━━━━━━━━━━━━━━━━\n"
         f"🤖 **GEMINI CHỈ ĐẠO CHIẾN LƯỢC:**\n{ai_nhan_dinh}"
     )
-    bot.edit_message_text(chat_id=message.chat.id, message_id=waiting_msg.message_id, text=bao_cao, parse_mode="Markdown")
+    bot.edit_message_text(chat_id=message.chat.id, message_id=waiting_msg.message_id, text=bao_cao)
 
 @bot.message_handler(func=lambda message: True)
 def handle_wallet(message):
@@ -197,7 +201,7 @@ def bao_cao_buoi_sang():
         f"📈 **XS Tăng:** {xac_suat:.2f}% | 📊 **RSI:** {rsi:.2f}\n"
         f"🤖 **GEMINI:** {ai_nhan_dinh}"
     )
-    bot.send_message(ADMIN_CHAT_ID, bao_cao, parse_mode="Markdown")
+    bot.send_message(ADMIN_CHAT_ID, bao_cao)
 
 def chay_lich_trinh():
     while True:
